@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Union, Mapping
+from typing import List
 
 @dataclass
 class NumLiteral:
@@ -11,6 +12,7 @@ class NumLiteral:
 @dataclass
 class BoolLiteral:
     value: bool
+
 
 @dataclass
 class If_else:
@@ -34,7 +36,28 @@ class Let:
     e1: 'AST'
     e2: 'AST'
 
-AST = NumLiteral | BinOp | Variable | Let | If_else
+
+@dataclass
+class Seq:
+    body: List['AST']
+
+@dataclass
+class LetMut:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class Put:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
+class Get:
+    var: 'AST'
+
+
+AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut
 
 Value = Fraction | bool
 
@@ -59,9 +82,21 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             if name in environment:
                 return environment[name]
             raise InvalidProgram()
+        case Put(Variable(name),e1): 
+            return eval(e1,environment | { name: v1 })
+        case Get(Variable(name)):
+            return { name: v1 }
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | { name: v1 })
+        case LetMut(Variable(name),e1, body):
+            v1 = eval(e1, environment)
+            for items in body:
+                v2=eval(items, environment | { name: v1 })
+                v1=v2
+            return v1
+           
+            
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -120,3 +155,4 @@ def test_let_eval():
 print(test_eval())
 print(test_If_else_eval())
 print(test_let_eval())
+
