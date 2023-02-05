@@ -1,0 +1,22 @@
+Tried learing git hub
+
+
+
+$ git log
+commit 10bb1874f48ac77f8a51fbbf2ab2a427df0383e7 (HEAD -> master, origin/master)
+Author: pranav <pranav.rathod@iitgn.ac.in>
+Date:   Mon Jan 9 20:05:08 2023 +0530
+
+    Created new file for fun
+
+commit 22af48d146b1120e5f282ad70ba5ddd7f1391920
+Author: pranav <pranav.rathod@iitgn.ac.in>
+Date:   Sat Jan 7 23:47:16 2023 +0530
+
+    Initial commit
+
+commit 63189ca18756e0e568ba684c2a67a21b43bded73
+Author: pranav <pranav.rathod@iitgn.ac.in>
+Date:   Wed Jan 4 23:11:03 2023 +0530
+
+    Initial commit
