@@ -57,7 +57,7 @@ class Get:
     var: 'AST'
 
 
-AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut
+AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq
 
 Value = Fraction | bool
 
@@ -83,20 +83,21 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
                 return environment[name]
             raise InvalidProgram()
         case Put(Variable(name),e1): 
-            return eval(e1,environment | { name: v1 })
+            environment[name]=eval(e1,environment)
+            return environment[name]
         case Get(Variable(name)):
-            return { name: v1 }
+            return environment[name]
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | { name: v1 })
-        case LetMut(Variable(name),e1, body):
+        case LetMut(Variable(name),e1, e2):
             v1 = eval(e1, environment)
-            for items in body:
-                v2=eval(items, environment | { name: v1 })
-                v1=v2
-            return v1
-           
-            
+            return eval(e2, environment | { name: v1 })
+        case Seq(body):
+            v1=None
+            for item in body:
+                v1=eval(item,environment)
+            return v1    
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -152,7 +153,27 @@ def test_let_eval():
     e  = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
 
+
+def test_letmut_eg1():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    e2=LetMut(a,e1,Put(a,BinOp("+",Get(a),NumLiteral(6))))
+    assert eval(e2)==11
+
+
+def test_letmut_eg2():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    b=Variable("b")
+    e2=NumLiteral(4)
+    e3=Put(a,BinOp("+",Get(a),Get(b)))
+    e4=Put(b,BinOp("+",Get(a),Get(b)))
+    e5=LetMut(b,e2,Seq([e3,e4]))
+    e6=LetMut(a,e1,Seq([e5,Get(a)]))
+    assert eval(e6)==9
+
 print(test_eval())
 print(test_If_else_eval())
 print(test_let_eval())
-
+print(test_letmut_eg1())
+print(test_letmut_eg2())
