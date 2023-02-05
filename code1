@@ -56,6 +56,9 @@ class Put:
 class Get:
     var: 'AST'
 
+@dataclass
+class Print:
+    e1: 'AST'
 
 AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq
 
@@ -113,6 +116,8 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("==", left,right):
             return eval(left,environment) == eval(right, environment)
 
+        case Print(e1):
+            print(eval(e1,environment))
     raise InvalidProgram()
 
 def test_eval():
@@ -171,6 +176,13 @@ def test_letmut_eg2():
     e5=LetMut(b,e2,Seq([e3,e4]))
     e6=LetMut(a,e1,Seq([e5,Get(a)]))
     assert eval(e6)==9
+
+def test_print():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    e2=LetMut(a,e1,Put(a,BinOp("+",Get(a),NumLiteral(6))))
+    e3=Print(e2)
+    assert eval(e3)==11
 
 print(test_eval())
 print(test_If_else_eval())
