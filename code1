@@ -1,28 +1,21 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Union, Mapping
+from typing import Union, Mapping  #Union is used to specify that a variable can have one of several types and Mapping is a type hint for dictionaries or mappings.
 from typing import List
 
+
 @dataclass
+#  The _init_ method takes any number of arguments and passes them to the Fraction constructor to create a new Fraction object, which is then stored in the value field.
 class NumLiteral:
     value: Fraction
     def __init__(self, *args):
         self.value = Fraction(*args)
 
 @dataclass
-class BoolLiteral:
-    value: bool
-
-
-@dataclass
-class If_else:
-    e1: 'AST'
-    e2: 'AST'
-    e3: 'AST' 
-
-@dataclass
-class BinOp:
-    operator: str
+# this is kind of binary operation
+class BinOp:                      
+    operator: str      # '+' is the operator in addition
+    # below are kind of two no. to be added
     left: 'AST'
     right: 'AST'
 
@@ -30,8 +23,53 @@ class BinOp:
 class Variable:
     name: str
 
+
 @dataclass
 class Let:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class BoolLiteral:
+    value: bool
+
+@dataclass
+class if_else:
+    expr: 'AST'
+    et: 'AST'    #statement if expr is true
+    ef: 'AST'    #statement if expr is false
+
+@dataclass
+class Assign:
+    var: 'AST'
+    expr: 'AST'
+
+@dataclass
+class Get:
+    var: 'AST'
+
+@dataclass
+class while_loop:
+    condition: 'AST'
+    body: 'AST'
+
+
+@dataclass
+class for_loop:
+    var: 'AST'
+    start_expr: 'AST'
+    end_expr: 'AST'
+    condition: 'AST'
+    body: 'AST'
+    
+@dataclass
+class Two_Str_concatenation:
+    str1: 'AST'
+    str2: 'AST'
+
+@dataclass
+class LetMut:
     var: 'AST'
     e1: 'AST'
     e2: 'AST'
@@ -60,13 +98,20 @@ class Get:
 class Print:
     e1: 'AST'
 
-AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq | Print
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print
 
-Value = Fraction | bool
 
+# The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
+AST = NumLiteral | BinOp | Variable | Let  
+
+Value = Fraction
+
+# The InvalidProgram exception is defined. This exception will be raised when an invalid program is encountered during evaluation.
 class InvalidProgram(Exception):
     pass
 
+# environment is a mapping of variable names to their values and is used to keep track of the state of the program during evaluation. 
+# The function returns the final value of the program.
 def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
     if environment is None:
         environment = {}
@@ -75,12 +120,6 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return value
         case BoolLiteral(value):
             return value
-        case If_else(e1,e2,e3):
-            v1=eval(e1,environment)
-            if v1==True:
-                return eval(e2,environment)
-            else:
-                return eval(e3,environment)
         case Variable(name):
             if name in environment:
                 return environment[name]
@@ -93,6 +132,14 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | { name: v1 })
+        case Two_Str_concatenation(str1,str2):
+            result_str = eval(str1,environment) + eval(str2,environment)
+            return result_str
+        case Assign(Variable(name),expr):
+            environment[name] = eval(expr,environment)
+            return environment[name]
+        case Get(Variable(name)):
+            return environment[name]
         case LetMut(Variable(name),e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | { name: v1 })
@@ -101,6 +148,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             for item in body:
                 v1=eval(item,environment)
             return v1    
+
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -110,6 +158,23 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case BinOp("/", left, right):
             return eval(left, environment) / eval(right, environment)
         case BinOp(">",left,right):
+            return eval(left,environment) > eval(right,environment)
+        case if_else(expr,et,ef):
+            v1 = eval(expr, environment)
+            if v1 == True:
+                return eval(et,environment)
+            else:
+                return eval(ef,environment)
+        case while_loop(condition,body):
+            v1 = eval(condition,environment)
+            if v1 == True:
+                eval(body,environment) 
+                while_loop(condition,environment)
+            return None
+        case LetMut(Variable(name),e1,e2):
+            v1 = eval(e1,environment)
+            return eval(e2,environment | {name : v1})
+
             return eval(left,environment) > eval(right, environment)
         case BinOp("<", left,right):
             return eval(left,environment) < eval(right, environment)
@@ -118,6 +183,7 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
 
         case Print(e1):
             print(eval(e1,environment))
+
     raise InvalidProgram()
 
 def test_eval():
@@ -125,22 +191,10 @@ def test_eval():
     e2 = NumLiteral(7)
     e3 = NumLiteral(9)
     e4 = NumLiteral(5)
-    e5 = BinOp("+", e2, e3)
+    e5 = BinOp("+", e2, e3)      
     e6 = BinOp("/", e5, e4)
     e7 = BinOp("*", e1, e6)
     assert eval(e7) == Fraction(32, 5)
-
-
-def test_If_else_eval():
-    e1=NumLiteral(10)
-    e2=NumLiteral(5)
-    e3=NumLiteral(6)
-    e4=NumLiteral(6)
-    e5=BinOp("*",e2,e1)
-    e6=BinOp("*",e3,e4)
-    e7=BinOp(">",e5,e6)
-    e10=If_else(e7,e5,e6)
-    assert eval(e10) == 50
 
 def test_let_eval():
     a  = Variable("a")
@@ -154,10 +208,33 @@ def test_let_eval():
     assert eval(e) == 25
     e  = Let(a, e1, BinOp("+", Let(a, e2, e2), a))
     assert eval(e) == 25
-    e3 = NumLiteral(6)
+    e3 = NumLiteral(6); 
     e  = BinOp("+", Let(a, e1, e2), Let(a, e3, e2))
     assert eval(e) == 22
 
+def test_letmut():
+    # a = Variable("a")
+    b = Variable("b")
+    e1 = LetMut(b, NumLiteral(2), Assign(b, BinOp("+", NumLiteral(1), Get(b))))
+    # e2 = LetMut(a, NumLiteral(1), Seq([e1, Get(a)]))
+    assert eval(e1) == 3
+
+
+# def test_while_eval():
+#     a = Variable("a")
+#     e1 = LetMut(a, NumLiteral(2), while_loop(Assign(a, BinOp("+", Get(a), NumLiteral(2)))) )
+#     assert eval()
+
+def test_if_else_eval():
+    e1=NumLiteral(10)
+    e2=NumLiteral(5)
+    e3=NumLiteral(6)
+    e4=NumLiteral(6)
+    e5=BinOp("*",e2,e1)
+    e6=BinOp("*",e3,e4)
+    e7=BinOp(">",e5,e6)
+    e10=if_else(e7,e5,e6)
+    assert eval(e10) == 50
 
 def test_letmut_eg1():
     a=Variable("a")
@@ -185,8 +262,7 @@ def test_print():
     assert eval(e3)==11
 
 print(test_eval())
-print(test_If_else_eval())
+print(test_if_else_eval())
 print(test_let_eval())
 print(test_letmut_eg1())
 print(test_letmut_eg2())
-print(test_print())
