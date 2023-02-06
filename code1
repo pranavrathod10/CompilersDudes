@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Union, Mapping  #Union is used to specify that a variable can have one of several types and Mapping is a type hint for dictionaries or mappings.
+from typing import List
+
 
 @dataclass
 #  The _init_ method takes any number of arguments and passes them to the Fraction constructor to create a new Fraction object, which is then stored in the value field.
@@ -20,6 +22,7 @@ class BinOp:
 @dataclass
 class Variable:
     name: str
+
 
 @dataclass
 class Let:
@@ -72,6 +75,32 @@ class LetMut:
     e2: 'AST'
 
 
+@dataclass
+class Seq:
+    body: List['AST']
+
+@dataclass
+class LetMut:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class Put:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
+class Get:
+    var: 'AST'
+
+@dataclass
+class Print:
+    e1: 'AST'
+
+AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq
+
+
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
 AST = NumLiteral | BinOp | Variable | Let  
 
@@ -95,6 +124,11 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             if name in environment:
                 return environment[name]
             raise InvalidProgram()
+        case Put(Variable(name),e1): 
+            environment[name]=eval(e1,environment)
+            return environment[name]
+        case Get(Variable(name)):
+            return environment[name]
         case Let(Variable(name), e1, e2):
             v1 = eval(e1, environment)
             return eval(e2, environment | { name: v1 })
@@ -106,6 +140,15 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
             return environment[name]
         case Get(Variable(name)):
             return environment[name]
+        case LetMut(Variable(name),e1, e2):
+            v1 = eval(e1, environment)
+            return eval(e2, environment | { name: v1 })
+        case Seq(body):
+            v1=None
+            for item in body:
+                v1=eval(item,environment)
+            return v1    
+
         case BinOp("+", left, right):
             return eval(left, environment) + eval(right, environment)
         case BinOp("-", left, right):
@@ -131,6 +174,16 @@ def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
         case LetMut(Variable(name),e1,e2):
             v1 = eval(e1,environment)
             return eval(e2,environment | {name : v1})
+
+            return eval(left,environment) > eval(right, environment)
+        case BinOp("<", left,right):
+            return eval(left,environment) < eval(right, environment)
+        case BinOp("==", left,right):
+            return eval(left,environment) == eval(right, environment)
+
+        case Print(e1):
+            print(eval(e1,environment))
+
     raise InvalidProgram()
 
 def test_eval():
@@ -172,4 +225,36 @@ def test_letmut():
 #     e1 = LetMut(a, NumLiteral(2), while_loop(Assign(a, BinOp("+", Get(a), NumLiteral(2)))) )
 #     assert eval()
 
-    
+
+
+def test_letmut_eg1():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    e2=LetMut(a,e1,Put(a,BinOp("+",Get(a),NumLiteral(6))))
+    assert eval(e2)==11
+
+
+def test_letmut_eg2():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    b=Variable("b")
+    e2=NumLiteral(4)
+    e3=Put(a,BinOp("+",Get(a),Get(b)))
+    e4=Put(b,BinOp("+",Get(a),Get(b)))
+    e5=LetMut(b,e2,Seq([e3,e4]))
+    e6=LetMut(a,e1,Seq([e5,Get(a)]))
+    assert eval(e6)==9
+
+def test_print():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    e2=LetMut(a,e1,Put(a,BinOp("+",Get(a),NumLiteral(6))))
+    e3=Print(e2)
+    assert eval(e3)==11
+
+print(test_eval())
+print(test_If_else_eval())
+print(test_let_eval())
+print(test_letmut_eg1())
+print(test_letmut_eg2())
+
