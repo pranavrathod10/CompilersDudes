@@ -60,7 +60,7 @@ class Get:
 class Print:
     e1: 'AST'
 
-AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq
+AST = NumLiteral | BinOp | Variable | Let | If_else | LetMut | Put | Get |Seq | Print
 
 Value = Fraction | bool
 
@@ -189,3 +189,4 @@ print(test_If_else_eval())
 print(test_let_eval())
 print(test_letmut_eg1())
 print(test_letmut_eg2())
+print(test_print())
