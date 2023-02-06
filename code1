@@ -40,14 +40,7 @@ class if_else:
     et: 'AST'    #statement if expr is true
     ef: 'AST'    #statement if expr is false
 
-@dataclass
-class Assign:
-    var: 'AST'
-    expr: 'AST'
 
-@dataclass
-class Get:
-    var: 'AST'
 
 @dataclass
 class while_loop:
@@ -98,13 +91,43 @@ class Get:
 class Print:
     e1: 'AST'
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print
+class Environment:
+    env: List
+
+    def __init__(self):
+        self.env=[{}]
+
+    def enter_scope(self):
+        self.env.append({})
+
+    def exit_scope(self):
+        assert self.env
+        self.env.pop()
+
+    def add(self,name,value):
+        assert name not in self.env[-1]
+        self.env[-1][name]=value
+
+    def get(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return dict[name]
+        raise KeyError()
+    
+    def update(self,name,value):
+        for dict in reversed(self.env):
+            if name in dict:
+                dict[name]=value
+                return
+        raise KeyError()
+
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print | while_loop
 
 
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
-AST = NumLiteral | BinOp | Variable | Let  
 
-Value = Fraction
+
+Value = Fraction | bool
 
 # The InvalidProgram exception is defined. This exception will be raised when an invalid program is encountered during evaluation.
 class InvalidProgram(Exception):
@@ -112,77 +135,84 @@ class InvalidProgram(Exception):
 
 # environment is a mapping of variable names to their values and is used to keep track of the state of the program during evaluation. 
 # The function returns the final value of the program.
-def eval(program: AST, environment: Mapping[str, Value] = None) -> Value:
+def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
-        environment = {}
+        environment = Environment()
+
+    def eval_(program):
+        return eval(program, environment) 
+       
     match program:
         case NumLiteral(value):
             return value
         case BoolLiteral(value):
             return value
+        
         case Variable(name):
-            if name in environment:
-                return environment[name]
-            raise InvalidProgram()
+            return environment.get(name)
+            
         case Put(Variable(name),e1): 
-            environment[name]=eval(e1,environment)
-            return environment[name]
+            environment.update(name,eval_(e1))
+            return environment.get(name)
+        
         case Get(Variable(name)):
-            return environment[name]
-        case Let(Variable(name), e1, e2):
-            v1 = eval(e1, environment)
-            return eval(e2, environment | { name: v1 })
+            return environment.get(name)
+        
+        case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
+
+            v1 = eval_(e1)
+            environment.enter_scope()
+            environment.add(name,v1)
+            v2=eval_(e2)
+            environment.exit_scope()
+            return v2
+        
         case Two_Str_concatenation(str1,str2):
-            result_str = eval(str1,environment) + eval(str2,environment)
+            result_str = eval_(str1) + eval_(str2)
             return result_str
-        case Assign(Variable(name),expr):
-            environment[name] = eval(expr,environment)
-            return environment[name]
-        case Get(Variable(name)):
-            return environment[name]
-        case LetMut(Variable(name),e1, e2):
-            v1 = eval(e1, environment)
-            return eval(e2, environment | { name: v1 })
+     
+        
         case Seq(body):
             v1=None
             for item in body:
-                v1=eval(item,environment)
+                v1=eval_(item)
             return v1    
 
         case BinOp("+", left, right):
-            return eval(left, environment) + eval(right, environment)
+            return eval_(left) + eval_(right)
         case BinOp("-", left, right):
-            return eval(left, environment) - eval(right, environment)
+            return eval_(left) - eval_(right)
         case BinOp("*", left, right):
-            return eval(left, environment) * eval(right, environment)
+            return eval_(left) * eval_(right)
         case BinOp("/", left, right):
-            return eval(left, environment) / eval(right, environment)
+            return eval_(left) / eval_(right)
         case BinOp(">",left,right):
-            return eval(left,environment) > eval(right,environment)
-        case if_else(expr,et,ef):
-            v1 = eval(expr, environment)
-            if v1 == True:
-                return eval(et,environment)
-            else:
-                return eval(ef,environment)
-        case while_loop(condition,body):
-            v1 = eval(condition,environment)
-            if v1 == True:
-                eval(body,environment) 
-                while_loop(condition,environment)
-            return None
-        case LetMut(Variable(name),e1,e2):
-            v1 = eval(e1,environment)
-            return eval(e2,environment | {name : v1})
-
-            return eval(left,environment) > eval(right, environment)
+            return eval_(left) > eval_(right)
         case BinOp("<", left,right):
-            return eval(left,environment) < eval(right, environment)
+            return eval_(left) < eval_(right)
         case BinOp("==", left,right):
-            return eval(left,environment) == eval(right, environment)
+            return eval_(left) == eval_(right)
+        
+        case if_else(expr,et,ef):
+            v1 = eval_(expr)
+            if v1 == True:
+                return eval_(et)
+            else:
+                return eval_(ef)
+                
+        case while_loop(condition,e1):
+            v1 = eval_(condition)
+            
+            if v1 == True:
+                eval_(e1) 
+                eval_(while_loop(condition,e1))
+            
+            return None
 
         case Print(e1):
-            print(eval(e1,environment))
+            v1=eval_(e1)
+            print(v1)
+            return v1
 
     raise InvalidProgram()
 
@@ -215,15 +245,16 @@ def test_let_eval():
 def test_letmut():
     # a = Variable("a")
     b = Variable("b")
-    e1 = LetMut(b, NumLiteral(2), Assign(b, BinOp("+", NumLiteral(1), Get(b))))
+    e1 = LetMut(b, NumLiteral(2), Put(b, BinOp("+",Get(b), NumLiteral(1))))
     # e2 = LetMut(a, NumLiteral(1), Seq([e1, Get(a)]))
     assert eval(e1) == 3
 
 
-# def test_while_eval():
-#     a = Variable("a")
-#     e1 = LetMut(a, NumLiteral(2), while_loop(Assign(a, BinOp("+", Get(a), NumLiteral(2)))) )
-#     assert eval()
+def test_while_eval():
+    a = Variable("a")
+    e1=NumLiteral(10)
+    e2 = LetMut(a, NumLiteral(2), while_loop(BinOp("<",Get(a),e1),Put(a, BinOp("+", Get(a), NumLiteral(2)))) )
+    assert eval(e2)==None
 
 def test_if_else_eval():
     e1=NumLiteral(10)
@@ -266,3 +297,6 @@ print(test_if_else_eval())
 print(test_let_eval())
 print(test_letmut_eg1())
 print(test_letmut_eg2())
+print(test_print())
+print(test_letmut())
+print(test_while_eval())
