@@ -1,7 +1,11 @@
+#Implemented String Slicing
+
+
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Union, Mapping  #Union is used to specify that a variable can have one of several types and Mapping is a type hint for dictionaries or mappings.
 from typing import List
+
 
 
 @dataclass
