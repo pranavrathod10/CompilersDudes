@@ -51,11 +51,11 @@ class while_loop:
 @dataclass
 class for_loop:
     var: 'AST'
-    start_expr: 'AST'
-    end_expr: 'AST'
+    expr: 'AST'
     condition: 'AST'
+    updt: 'AST'
     body: 'AST'
-    
+
 @dataclass
 class Two_Str_concatenation:
     str1: 'AST'
@@ -84,6 +84,11 @@ class Put:
     e1: 'AST'
 
 @dataclass
+class Assign:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
 class Get:
     var: 'AST'
 
@@ -107,7 +112,13 @@ class Environment:
     def add(self,name,value):
         assert name not in self.env[-1]
         self.env[-1][name]=value
-
+    def check(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return True
+            else:
+                return False
+            
     def get(self,name):
         for dict in reversed(self.env):
             if name in dict:
@@ -115,13 +126,16 @@ class Environment:
         raise KeyError()
     
     def update(self,name,value):
+        
         for dict in reversed(self.env):
             if name in dict:
                 dict[name]=value
                 return
+            
         raise KeyError()
+    
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print | while_loop
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop
 
 
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
@@ -158,6 +172,25 @@ def eval(program: AST, environment: Environment = None) -> Value:
         case Get(Variable(name)):
             return environment.get(name)
         
+        case Assign(Variable(name),e1):
+            environment.add(name,eval_(e1))
+        
+        case for_loop(Variable(name),e1,condition,updt,body):
+            if environment.check(name):
+                environment.update(name,eval_(e1))
+                
+            else:
+               environment.add(name,eval_(e1))
+            
+            v2=eval_(condition)
+            if v2 == True:
+                eval_(body)
+                e2=eval_(updt)
+                eval_(for_loop(name,e2,condition,updt,body))
+
+            return None
+
+
         case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
 
             v1 = eval_(e1)
@@ -208,7 +241,7 @@ def eval(program: AST, environment: Environment = None) -> Value:
                 eval_(while_loop(condition,e1))
             
             return None
-
+       
         case Print(e1):
             v1=eval_(e1)
             print(v1)
@@ -250,11 +283,7 @@ def test_letmut():
     assert eval(e1) == 3
 
 
-def test_while_eval():
-    a = Variable("a")
-    e1=NumLiteral(10)
-    e2 = LetMut(a, NumLiteral(2), while_loop(BinOp("<",Get(a),e1),Put(a, BinOp("+", Get(a), NumLiteral(2)))) )
-    assert eval(e2)==None
+
 
 def test_if_else_eval():
     e1=NumLiteral(10)
@@ -285,6 +314,24 @@ def test_letmut_eg2():
     e6=LetMut(a,e1,Seq([e5,Get(a)]))
     assert eval(e6)==9
 
+def test_while_eval():
+    a = Variable("a")
+    e1=NumLiteral(10)
+    e2 = LetMut(a, NumLiteral(2), while_loop(BinOp("<",Get(a),e1),Put(a, BinOp("+", Get(a), NumLiteral(2)))) )
+    print("hi",Print(a))
+    assert eval(e2)==None
+
+def test_for_eval():
+    a = Variable("a")
+    e1=NumLiteral(10)
+    i=Variable("i")
+    e2=NumLiteral(0)
+    e3=Put(i,BinOp("+",Get(i),NumLiteral(1)))
+    e4=Put(a,BinOp("+",Get(i),Get(a)))
+    e5=LetMut(a,e1, for_loop(i,e2,BinOp(">",Get(i),e2),e3,e4))
+    assert eval(e5)==None
+
+
 def test_print():
     a=Variable("a")
     e1=NumLiteral(5)
@@ -300,3 +347,4 @@ print(test_letmut_eg2())
 print(test_print())
 print(test_letmut())
 print(test_while_eval())
+print(test_for_eval())
