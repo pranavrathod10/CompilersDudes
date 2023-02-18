@@ -96,6 +96,25 @@ class Get:
 class Print:
     e1: 'AST'
 
+@dataclass
+class LetFun:
+    name:'AST'
+    params:List['AST']
+    body:'AST'
+    expr:'AST'
+
+@dataclass
+class FunCall:
+    fn:'AST'
+    args: List['AST']
+
+@dataclass
+class FnObject:
+    params: List['AST']
+    body: 'AST'
+
+
+
 class Environment:
     env: List
 
@@ -135,7 +154,7 @@ class Environment:
         raise KeyError()
     
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall
 
 
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
@@ -199,7 +218,26 @@ def eval(program: AST, environment: Environment = None) -> Value:
             v2=eval_(e2)
             environment.exit_scope()
             return v2
-        
+        case LetFun(Variable(name),params, body,expr):
+            environment.enter_scope()
+            environment.add(name, FnObject(params,body))
+            v=eval_(expr)
+            environment.exit_scope()
+            return v
+        case FunCall(Variable(name),args):
+            fn=environment.get(name)
+            argv=[]
+            for arg in args:
+                argv.append(eval_(arg))
+                environment.enter_scope()
+                for params,arg in zip(fn.params,argv):
+                    environment.add(params,arg)
+                v=eval_(body)
+                environment.exit_scope()
+                return v
+            
+
+
         case Two_Str_concatenation(str1,str2):
             result_str = eval_(str1) + eval_(str2)
             return result_str
@@ -338,6 +376,14 @@ def test_print():
     e2=LetMut(a,e1,Put(a,BinOp("+",Get(a),NumLiteral(6))))
     e3=Print(e2)
     assert eval(e3)==11
+
+def test_Letfun():
+    a=Variable('a')
+    b=Variable('b')
+    f=Variable('f')
+    e=LetFun(f,[a,b],BinOp("+",a,b),FunCall(f,[NumLiteral(15),NumLiteral(2)]))
+    assert eval(e)==17    
+    
 
 print(test_eval())
 print(test_if_else_eval())
