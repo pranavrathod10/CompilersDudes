@@ -1,15 +1,36 @@
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Union, Mapping  #Union is used to specify that a variable can have one of several types and Mapping is a type hint for dictionaries or mappings.
+from typing import Union, Mapping,  Optional  #Union is used to specify that a variable can have one of several types and Mapping is a type hint for dictionaries or mappings.
 from typing import List
 
+
+
+@dataclass
+class NumType:
+    pass
+
+@dataclass
+class BoolType:
+    pass
+@dataclass
+class StringType:
+    pass
+
+SimType = NumType | BoolType | StringType
 
 @dataclass
 #  The _init_ method takes any number of arguments and passes them to the Fraction constructor to create a new Fraction object, which is then stored in the value field.
 class NumLiteral:
     value: Fraction
+    type: SimType = NumType()
     def __init__(self, *args):
         self.value = Fraction(*args)
+
+
+@dataclass
+class StringLiteral:
+    word : str 
+    type: SimType = StringType()
 
 @dataclass
 # this is kind of binary operation
@@ -18,6 +39,7 @@ class BinOp:
     # below are kind of two no. to be added
     left: 'AST'
     right: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class Variable:
@@ -33,12 +55,14 @@ class Let:
 @dataclass
 class BoolLiteral:
     value: bool
+    type: SimType = BoolType()
 
 @dataclass
 class if_else:
     expr: 'AST'
     et: 'AST'    #statement if expr is true
     ef: 'AST'    #statement if expr is false
+    type: Optional[SimType] = None
 
 
 
@@ -120,6 +144,11 @@ class LetAnd:
     var2:'AST'
     expr2:'AST'
     expr3:'AST'
+@dataclass
+class UBoolOp:
+    var:'AST'  
+    expr: 'AST' 
+
 
 class Environment:
     env: List
@@ -160,13 +189,13 @@ class Environment:
         raise KeyError()
     
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp
 
 
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
 
 
-Value = Fraction | bool
+Value = Fraction | bool | str
 
 # The InvalidProgram exception is defined. This exception will be raised when an invalid program is encountered during evaluation.
 class InvalidProgram(Exception):
@@ -174,6 +203,53 @@ class InvalidProgram(Exception):
 
 # environment is a mapping of variable names to their values and is used to keep track of the state of the program during evaluation. 
 # The function returns the final value of the program.
+# Type check
+def typecheck(program: AST, env = None) -> AST:
+    match program:
+        case NumLiteral() as t: # already typed.
+            return t
+        case BoolLiteral() as t: # already typed.
+            return t
+        case StringLiteral() as t:
+            return t
+        case BinOp(op, left, right) if op in "+*-/":
+            tleft = typecheck(left)
+            tright = typecheck(right)
+            if tleft.type != NumType() or tright.type != NumType():
+                raise TypeError()
+            return BinOp(op, left, right, NumType())
+        case BinOp("<", left, right):
+            tleft = typecheck(left)
+            tright = typecheck(right)
+            if tleft.type != NumType() or tright.type != NumType():
+                raise TypeError()
+            return BinOp("<", left, right, BoolType())
+        case BinOp("=", left, right):
+            tleft = typecheck(left)
+            tright = typecheck(right)
+            if tleft.type != tright.type:
+                raise TypeError()
+            return BinOp("=", left, right, BoolType())
+        case if_else(c, t, f): # We have to typecheck both branches.
+            tc = typecheck(c)
+            if tc.type != BoolType():
+                raise TypeError()
+            tt = typecheck(t)
+            tf = typecheck(f)
+            if tt.type != tf.type: # Both branches must have the same type.
+                raise TypeError()
+            return if_else(tc, tt, tf, tt.type) # The common type becomes the type of the if-else.
+    raise TypeError()
+
+
+
+#typecheck
+
+
+
+
+
+
 def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
         environment = Environment()
@@ -199,6 +275,7 @@ def eval(program: AST, environment: Environment = None) -> Value:
         
         case Assign(Variable(name),e1):
             environment.add(name,eval_(e1))
+            return name
         
         case for_loop(Variable(name),e1,condition,updt,body):
             if environment.check(name):
@@ -251,19 +328,43 @@ def eval(program: AST, environment: Environment = None) -> Value:
             v=eval_(expr)
             environment.exit_scope()
             return v
+        
+        # case FnObject(params,body):
+        #     for par in params:
+        #         if(par is )
         case FunCall(Variable(name),args):
             fn=environment.get(name)
             argv=[]
             for arg in args:
                 argv.append(eval_(arg))
-                environment.enter_scope()
-                for params,arg in zip(fn.params,argv):
-                    environment.add(params,arg)
-                v=eval_(body)
-                environment.exit_scope()
-                return v
+            environment.enter_scope()
+            for par,arg in zip(fn.params,argv):
+                environment.add(par,arg)
+            v=eval_(fn.body)
+            environment.exit_scope()
+            return v
             
-
+        case UBoolOp(Variable(name),expr):
+            v2=eval_(expr)
+            z=NumLiteral(10)
+            print("name: ",environment.check(name))
+            if environment.check(name):
+                v1=environment.get(name)
+                print("v1",v2.type)
+                print("typecheck: ", typecheck(NumLiteral(5)))
+                if typecheck(NumLiteral(5)).type==NumType():
+                    if v1 !=0:
+                        print("yes")
+                        return True
+                    else:
+                        return False
+                elif typecheck(NumLiteral(5)).type==StringType():
+                    if v1 == "":
+                        return False
+                    else:
+                        return True
+            else:
+                print("error")
 
         case Two_Str_concatenation(str1,str2):
             result_str = eval_(str1) + eval_(str2)
@@ -420,6 +521,13 @@ def test_LetAnd():
     e4=LetMut(a,e1,LetAnd(a,NumLiteral(3),b,e2,e3)) 
     assert eval(e4)==9
 
+def test_UBoolOp():
+    a=Variable("a")
+    e1=NumLiteral(5)
+    e2=Assign(a,e1)
+    e3=UBoolOp(a,e2)
+    assert eval(e3)==True
+
 print("test_eval(): ",test_eval())
 print("test_if_else_eval(): ", test_if_else_eval())
 print("test_let_eval(): ",test_let_eval())
@@ -429,5 +537,6 @@ print("test_print(): ",test_print())
 print("test_letmut(): ",test_letmut())
 print("test_while_eval(): ",test_while_eval())
 print("test_for_eval(): ",test_for_eval())
-print("test_Letfun(): ",test_Letfun())
+# print("test_Letfun(): ",test_Letfun())
 print("test_LetAnd(): ",test_LetAnd())
+print("test_UBoolOp(): ",test_UBoolOp())

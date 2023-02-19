@@ -249,8 +249,11 @@ class NumType:
 @dataclass
 class BoolType:
     pass
+@dataclass
+class StringType:
+    pass
 
-SimType = NumType | BoolType
+SimType = NumType | BoolType | StringType
 
 @dataclass
 class NumLiteral:
@@ -261,6 +264,11 @@ class NumLiteral:
 class BoolLiteral:
     value: bool
     type: SimType = BoolType()
+
+@dataclass
+class StringLiteral:
+    value:bool
+    type:SimType =StringType()
 
 @dataclass
 class BinOp:
@@ -287,7 +295,7 @@ class Variable:
 
 
 
-AST = NumLiteral | BoolLiteral | BinOp | IfElse | While | Variable
+AST = NumLiteral | BoolLiteral | StringLiteral | BinOp | IfElse | While | Variable
 # TypedAST = NewType('TypedAST', AST)
 
 
@@ -300,6 +308,8 @@ def typecheck(program: AST, env = None) -> AST:
         case NumLiteral() as t: # already typed.
             return t
         case BoolLiteral() as t: # already typed.
+            return t
+        case StringLiteral() as t:
             return t
         case BinOp(op, left, right) if op in "+*-/":
             tleft = typecheck(left)
@@ -332,6 +342,8 @@ def typecheck(program: AST, env = None) -> AST:
 
 def test_typecheck():
     import pytest
+    t5=typecheck(a)
+    print("t5: ",t5)
     te = typecheck(BinOp("+", NumLiteral(2), NumLiteral(3)))
     print("te: ",te)
     assert te.type == NumType()
@@ -353,5 +365,5 @@ def test_parse():
     print(parse("if a+b > 2*d then a*b - c + d else e*f/g end"))
 
 # test_parse() # Uncomment to see the created ASTs.
-print(test_parse())
+# print(test_parse())
 print(test_typecheck())
