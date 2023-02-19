@@ -36,7 +36,6 @@ class Stream:
 @dataclass
 class Num:
     n: int
-
 @dataclass
 class Bool:
     b: bool
