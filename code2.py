@@ -365,5 +365,5 @@ def test_parse():
     print(parse("if a+b > 2*d then a*b - c + d else e*f/g end"))
 
 # test_parse() # Uncomment to see the created ASTs.
-# print(test_parse())
+print(test_parse())
 print(test_typecheck())
