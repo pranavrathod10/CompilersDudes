@@ -113,7 +113,13 @@ class FnObject:
     params: List['AST']
     body: 'AST'
 
-
+@dataclass
+class LetAnd:
+    var1:'AST'
+    expr1: 'AST'
+    var2:'AST'
+    expr2:'AST'
+    expr3:'AST'
 
 class Environment:
     env: List
@@ -218,6 +224,27 @@ def eval(program: AST, environment: Environment = None) -> Value:
             v2=eval_(e2)
             environment.exit_scope()
             return v2
+        
+        case LetAnd(Variable(name1),expr1,Variable(name2),expr2,expr3):
+            v1=eval_(expr1)
+            v2=eval_(expr2)
+            environment.enter_scope()
+            if environment.check(name1):
+                environment.update(name1,v1)
+                
+            else:
+               environment.add(name1,v1)
+
+            if environment.check(name2):
+                environment.update(name2,v2)
+                
+            else:
+               environment.add(name2,v2)
+            
+            v3=eval_(expr3)
+            environment.exit_scope()
+            return v3
+
         case LetFun(Variable(name),params, body,expr):
             environment.enter_scope()
             environment.add(name, FnObject(params,body))
@@ -383,14 +410,24 @@ def test_Letfun():
     f=Variable('f')
     e=LetFun(f,[a,b],BinOp("+",a,b),FunCall(f,[NumLiteral(15),NumLiteral(2)]))
     assert eval(e)==17    
-    
 
-print(test_eval())
-print(test_if_else_eval())
-print(test_let_eval())
-print(test_letmut_eg1())
-print(test_letmut_eg2())
-print(test_print())
-print(test_letmut())
-print(test_while_eval())
-print(test_for_eval())
+def test_LetAnd():
+    a=Variable('a')
+    b=Variable('b')
+    e1=NumLiteral(5)
+    e2=BinOp("+",a,NumLiteral(1))
+    e3=BinOp("+",a,b)
+    e4=LetMut(a,e1,LetAnd(a,NumLiteral(3),b,e2,e3)) 
+    assert eval(e4)==9
+
+print("test_eval(): ",test_eval())
+print("test_if_else_eval(): ", test_if_else_eval())
+print("test_let_eval(): ",test_let_eval())
+print("test_letmut_eg1(): ",test_letmut_eg1())
+print("test_letmut_eg2(): ",test_letmut_eg2())
+print("test_print(): ",test_print())
+print("test_letmut(): ",test_letmut())
+print("test_while_eval(): ",test_while_eval())
+print("test_for_eval(): ",test_for_eval())
+print("test_Letfun(): ",test_Letfun())
+print("test_LetAnd(): ",test_LetAnd())
