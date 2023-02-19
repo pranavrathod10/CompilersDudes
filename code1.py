@@ -211,8 +211,6 @@ class Environment:
 
         raise KeyError()
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print | while_loop    
-        raise KeyError()
     
 
 AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp
