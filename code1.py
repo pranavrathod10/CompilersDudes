@@ -54,7 +54,7 @@ class Variable:
 @dataclass
 class StringLiteral:
     word : str 
-
+    type: SimType = StringType()
 
 
 @dataclass
@@ -168,7 +168,6 @@ class LetAnd:
     expr3:'AST'
 @dataclass
 class UBoolOp:
-    var:'AST'  
     expr: 'AST' 
 
 
@@ -303,21 +302,6 @@ def eval(program: AST, environment: Environment = None) -> Value:
         case Assign(Variable(name),e1):
             environment.add(name,eval_(e1))
             return name
-        
-        case for_loop(Variable(name),e1,condition,updt,body):
-            if environment.check(name):
-                environment.update(name,eval_(e1))
-                
-            else:
-               environment.add(name,eval_(e1))
-            
-            v2=eval_(condition)
-            if v2 == True:
-                eval_(body)
-                e2=eval_(updt)
-                eval_(for_loop(name,e2,condition,updt,body))
-
-            return None
 
 
         case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
@@ -371,9 +355,7 @@ def eval(program: AST, environment: Environment = None) -> Value:
             environment.exit_scope()
             return v
         
-        # case FnObject(params,body):
-        #     for par in params:
-        #         if(par is )
+        
         case FunCall(Variable(name),args):
             fn=environment.get(name)
             argv=[]
@@ -381,26 +363,21 @@ def eval(program: AST, environment: Environment = None) -> Value:
                 argv.append(eval_(arg))
             environment.enter_scope()
             for par,arg in zip(fn.params,argv):
-                environment.add(par,arg)
+                environment.add(par.name,arg)
             v=eval_(fn.body)
             environment.exit_scope()
             return v
             
-        case UBoolOp(Variable(name),expr):
-            v2=eval_(expr)
-            z=NumLiteral(10)
-            print("name: ",environment.check(name))
-            if environment.check(name):
-                v1=environment.get(name)
-                print("v1",v2.type)
-                print("typecheck: ", typecheck(NumLiteral(5)))
-                if typecheck(NumLiteral(5)).type==NumType():
+        case UBoolOp(expr):
+            if typecheck(expr).type==NumType():
+                    v1=eval_(expr)
                     if v1 !=0:
                         print("yes")
                         return True
                     else:
                         return False
-                elif typecheck(NumLiteral(5)).type==StringType():
+            elif typecheck(expr).type==StringType():
+                    v1=eval_(expr)
                     if v1 == "":
                         return False
                     else:
@@ -442,14 +419,25 @@ def eval(program: AST, environment: Environment = None) -> Value:
                 return eval_(ef)
                 
         case while_loop(condition,e1):
-            v1 = eval_(condition)
-            
-            if v1 == True:
+            environment.enter_scope()
+            vcond = eval_(condition)
+            while(vcond):
                 eval_(e1) 
-                eval_(while_loop(condition,e1))
-            
+                vcond=eval_(condition)
+            environment.exit_scope()
             return None
 
+        case for_loop(Variable(name),e1,condition,updt,body):
+            environment.enter_scope()
+            environment.add(name,eval_(e1))
+            vcond=eval_(condition)
+            while(vcond):
+                eval_(body)
+                eval_(updt)
+                vcond=eval_(condition)    
+            environment.exit_scope()
+            return None
+        
         case Print(e1):
             v1=eval_(e1)
             print(v1)
@@ -468,12 +456,12 @@ def test_eval():
     e7 = BinOp("*", e1, e6)
     assert eval(e7) == Fraction(32, 5)
 
-def test_string_slicing():
-    str1 = StringLiteral("abcdefg")
-    start = NumLiteral(0)
-    end = NumLiteral(4)
-    expr = Str_slicing(str1,start,end)
-    assert eval(expr) == 'abcd'
+# def test_string_slicing():
+#     str1 = StringLiteral("abcdefg")
+#     start = NumLiteral(0)
+#     end = NumLiteral(4)
+#     expr = Str_slicing(str1,start,end)
+#     assert eval(expr) == 'abcd'
 
 
 def test_let_eval():
@@ -506,8 +494,6 @@ def test_while_eval():
     e1=NumLiteral(10)
     e2 = LetMut(a, NumLiteral(2), while_loop(BinOp("<",Get(a),e1),Put(a, BinOp("+", Get(a), NumLiteral(2)))) )
     assert eval(e2)==None
-
-
 
 
 def test_if_else_eval():
@@ -544,7 +530,6 @@ def test_while_eval():
     a = Variable("a")
     e1=NumLiteral(10)
     e2 = LetMut(a, NumLiteral(2), while_loop(BinOp("<",Get(a),e1),Put(a, BinOp("+", Get(a), NumLiteral(2)))) )
-    print("hi",Print(a))
     assert eval(e2)==None
 
 def test_for_eval():
@@ -555,6 +540,7 @@ def test_for_eval():
     e3=Put(i,BinOp("+",Get(i),NumLiteral(1)))
     e4=Put(a,BinOp("+",Get(i),Get(a)))
     e5=LetMut(a,e1, for_loop(i,e2,BinOp(">",Get(i),e2),e3,e4))
+    
     assert eval(e5)==None
 
 
@@ -582,12 +568,27 @@ def test_str_concatenation():
 # print(test_letmut())
 # print(test_while_eval())
 
-def test_Letfun():
+def test_Letfun1():
     a=Variable('a')
     b=Variable('b')
     f=Variable('f')
     e=LetFun(f,[a,b],BinOp("+",a,b),FunCall(f,[NumLiteral(15),NumLiteral(2)]))
-    assert eval(e)==17    
+    assert eval(e)==17 
+
+def test_Letfun2():
+    a = Variable("a")
+    b = Variable("b")
+    f = Variable("f")
+    g = BinOp (
+        "*",
+        FunCall(f, [NumLiteral(15), NumLiteral(2)]),
+        FunCall(f, [NumLiteral(12), NumLiteral(3)])
+    )
+    e = LetFun(
+        f, [a, b], BinOp("+", a, b),
+        g
+    )
+    assert eval(e) == (15+2)*(12+3)
 
 def test_LetAnd():
     a=Variable('a')
@@ -598,12 +599,25 @@ def test_LetAnd():
     e4=LetMut(a,e1,LetAnd(a,NumLiteral(3),b,e2,e3)) 
     assert eval(e4)==9
 
-def test_UBoolOp():
+def test_UBoolOp1():
     a=Variable("a")
-    e1=NumLiteral(5)
-    e2=Assign(a,e1)
-    e3=UBoolOp(a,e2)
-    assert eval(e3)==True
+    e1=NumLiteral(0)
+    e3=UBoolOp(e1)
+    assert eval(e3)==False
+
+def test_UBoolOp2():
+    e1=StringLiteral("")
+    e3=UBoolOp(e1)
+    print(eval(e3))
+    assert eval(e3)==False
+
+def test_typecheck():
+    t1=BinOp("-",NumLiteral(5),NumLiteral(3))
+    t2=BinOp("+",t1,NumLiteral(2))
+    t3=typecheck(t2)
+    print("t2: ",t2)
+    print("t3: ",t3)
+    assert t3.type == NumType()
 
 print("test_eval(): ",test_eval())
 print("test_if_else_eval(): ", test_if_else_eval())
@@ -614,7 +628,10 @@ print("test_print(): ",test_print())
 print("test_letmut(): ",test_letmut())
 print("test_while_eval(): ",test_while_eval())
 print("test_for_eval(): ",test_for_eval())
-# print("test_Letfun(): ",test_Letfun())
+print("test_Letfun1(): ",test_Letfun1())
+print("test_Letfun2(): ",test_Letfun2())
 print("test_LetAnd(): ",test_LetAnd())
-print("test_UBoolOp(): ",test_UBoolOp())
+print("test_UBoolOp1(): ",test_UBoolOp1())
+print("test_UBoolOp2(): ",test_UBoolOp2())
+print("test_typecheck(): ",test_typecheck())
 

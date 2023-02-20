@@ -341,8 +341,7 @@ def typecheck(program: AST, env = None) -> AST:
 
 def test_typecheck():
     import pytest
-    t5=typecheck(a)
-    print("t5: ",t5)
+    
     te = typecheck(BinOp("+", NumLiteral(2), NumLiteral(3)))
     print("te: ",te)
     assert te.type == NumType()
