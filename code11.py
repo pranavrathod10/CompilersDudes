@@ -46,14 +46,19 @@ class BinOp:
     # below are kind of two no. to be added
     left: 'AST'
     right: 'AST'
+    type: Optional[SimType] = None
 
+
+@dataclass
+class Name:
+    value:str
     type: Optional[SimType] = None
 
 
 @dataclass
 class Variable:
-    name: str
-
+    name: Name
+    type: Optional[SimType] = None
 
 @dataclass
 class StringLiteral:
@@ -66,6 +71,7 @@ class Let:
     var: 'AST'
     e1: 'AST'
     e2: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class BoolLiteral:
@@ -85,6 +91,7 @@ class if_else:
 class while_loop:
     condition: 'AST'
     body: 'AST'
+    type: Optional[SimType] = None
 
 
 @dataclass
@@ -94,12 +101,14 @@ class for_loop:
     condition: 'AST'
     updt: 'AST'
     body: 'AST'
+    type: Optional[SimType] = None
 
 
 @dataclass
 class Two_Str_concatenation:
     str1: 'AST'
     str2: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 
@@ -107,6 +116,7 @@ class Str_slicing:
     str1: 'AST'
     start: 'AST'
     end: 'AST'
+    type: Optional[SimType] = None
 
 
 @dataclass
@@ -114,37 +124,44 @@ class LetMut:
     var: 'AST'
     e1: 'AST'
     e2: 'AST'
+    type: Optional[SimType] = None
 
 
 @dataclass
 class Seq:
     body: List['AST']
+    type: Optional[SimType] = None
 
 @dataclass
 class LetMut:
     var: 'AST'
     e1: 'AST'
     e2: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class Put:
     var: 'AST'
     e1: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 
 class Assign:
     var: 'AST'
     e1: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 
 class Get:
     var: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class Print:
     e1: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class LetFun:
@@ -152,16 +169,19 @@ class LetFun:
     params:List['AST']
     body:'AST'
     expr:'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class FunCall:
     fn:'AST'
     args: List['AST']
+    type: Optional[SimType] = None
 
 @dataclass
 class FnObject:
     params: List['AST']
     body: 'AST'
+    type: Optional[SimType] = None
 
 @dataclass
 class LetAnd:
@@ -170,51 +190,12 @@ class LetAnd:
     var2:'AST'
     expr2:'AST'
     expr3:'AST'
+    type: Optional[SimType] = None
 @dataclass
 class UBoolOp:
-    expr: 'AST' 
-
-
-class Environment:
-    env: List
-
-    def __init__(self):
-        self.env=[{}]
-
-    def enter_scope(self):
-        self.env.append({})
-
-    def exit_scope(self):
-        assert self.env
-        self.env.pop()
-
-    def add(self,name,value):
-        assert name not in self.env[-1]
-        self.env[-1][name]=value
-
-    def check(self,name):
-        for dict in reversed(self.env):
-            if name in dict:
-                return True
-            else:
-                return False
-            
-    def get(self,name):
-        for dict in reversed(self.env):
-            if name in dict:
-                return dict[name]
-        raise KeyError()
-    
-    def update(self,name,value):
-
-        for dict in reversed(self.env):
-            if name in dict:
-                dict[name]=value
-                return
-
-        raise KeyError()
-
-    
+    expr: 'AST'
+    type: Optional[SimType] = None
+     
 
 AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp
 
@@ -226,13 +207,6 @@ AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assig
 
 Value = Fraction | bool | str
 
-
-# The InvalidProgram exception is defined. This exception will be raised when an invalid program is encountered during evaluation.
-class InvalidProgram(Exception):
-    pass
-
-# environment is a mapping of variable names to their values and is used to keep track of the state of the program during evaluation. 
-# The function returns the final value of the program.
 
 # Type check
 def typecheck(program: AST, env = None) -> AST:
@@ -277,6 +251,63 @@ def typecheck(program: AST, env = None) -> AST:
 #typecheck end
 
 
+
+class Environment:
+    env: List
+
+    def __init__(self):
+        self.env=[{}]
+
+    def enter_scope(self):
+        self.env.append({})
+
+    def exit_scope(self):
+        assert self.env
+        self.env.pop()
+
+    def add(self,name,value):
+        assert name not in self.env[-1]
+        self.env[-1][name]=value
+
+    def check(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return True
+            else:
+                return False
+            
+    def get(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return dict[name]
+        raise KeyError()
+    
+    def update(self,name,value,value_type):
+
+        for dict in reversed(self.env):
+            if name in dict:
+                if typecheck(name).type==value_type:
+                    dict[name]=value
+                    return
+                else:
+                    print("error")
+                    return
+
+        raise KeyError()
+
+    
+
+
+
+# The InvalidProgram exception is defined. This exception will be raised when an invalid program is encountered during evaluation.
+class InvalidProgram(Exception):
+    pass
+
+# environment is a mapping of variable names to their values and is used to keep track of the state of the program during evaluation. 
+# The function returns the final value of the program.
+
+
+
 def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
         environment = Environment()
@@ -297,13 +328,15 @@ def eval(program: AST, environment: Environment = None) -> Value:
             return environment.get(name)
             
         case Put(Variable(name),e1): 
-            environment.update(name,eval_(e1))
+            v1=typecheck(e1).type
+            environment.update(name,eval_(e1),v1)
             return environment.get(name)
         
         case Get(Variable(name)):
             return environment.get(name)
 
         case Assign(Variable(name),e1):
+            name.type=typecheck(e1).type
             environment.add(name,eval_(e1))
             return name
 
@@ -311,6 +344,9 @@ def eval(program: AST, environment: Environment = None) -> Value:
         case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
             v1 = eval_(e1)
             environment.enter_scope()
+            print(typecheck(e1).type)
+            name.type=typecheck(e1).type
+            
             environment.add(name,v1)
             v2=eval_(e2)
             environment.exit_scope()
@@ -334,18 +370,22 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case LetAnd(Variable(name1),expr1,Variable(name2),expr2,expr3):
             v1=eval_(expr1)
+            vt1=typecheck(expr1).type
             v2=eval_(expr2)
+            vt2=typecheck(expr2).type
             environment.enter_scope()
             if environment.check(name1):
-                environment.update(name1,v1)
+                environment.update(name1,v1,vt1)
                 
             else:
+               name1.type=typecheck(expr1).type
                environment.add(name1,v1)
 
             if environment.check(name2):
-                environment.update(name2,v2)
+                environment.update(name2,v2,vt2)
                 
             else:
+               name.type=typecheck(expr2).type
                environment.add(name2,v2)
             
             v3=eval_(expr3)
@@ -354,6 +394,7 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case LetFun(Variable(name),params, body,expr):
             environment.enter_scope()
+            
             environment.add(name, FnObject(params,body))
             v=eval_(expr)
             environment.exit_scope()
@@ -366,8 +407,10 @@ def eval(program: AST, environment: Environment = None) -> Value:
             for arg in args:
                 argv.append(eval_(arg))
             environment.enter_scope()
-            for par,arg in zip(fn.params,argv):
-                environment.add(par.name,arg)
+            for par,arg1,arg in zip(fn.params,argv,args):
+                v1=par.name
+                v1.type=typecheck(arg).type
+                environment.add(v1,arg1)
             v=eval_(fn.body)
             environment.exit_scope()
             return v
@@ -433,6 +476,7 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case for_loop(Variable(name),e1,condition,updt,body):
             environment.enter_scope()
+            name.type=typecheck(e1).type
             environment.add(name,eval_(e1))
             vcond=eval_(condition)
             while(vcond):
