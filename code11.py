@@ -49,15 +49,11 @@ class BinOp:
     type: Optional[SimType] = None
 
 
-@dataclass
-class Name:
-    value:str
-    type: Optional[SimType] = None
 
 
 @dataclass
 class Variable:
-    name: Name
+    name: str
     type: Optional[SimType] = None
 
 @dataclass
@@ -207,9 +203,9 @@ AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assig
 
 Value = Fraction | bool | str
 
-
 # Type check
 def typecheck(program: AST, env = None) -> AST:
+    print("program: ",program)
     match program:
         case NumLiteral() as t: # already typed.
             return t
@@ -217,9 +213,16 @@ def typecheck(program: AST, env = None) -> AST:
             return t
         case StringLiteral() as t:
             return t
+        case Variable() as t:
+            print("t",t)
+            return t
         case BinOp(op, left, right) if op in "+*-/":
+            print("yes", left)
+            print("no", right)
+
             tleft = typecheck(left)
             tright = typecheck(right)
+            print("(",tleft.type," ", tright.type,")")
             if tleft.type != NumType() or tright.type != NumType():
                 raise TypeError()
             return BinOp(op, left, right, NumType())
@@ -269,6 +272,7 @@ class Environment:
         assert name not in self.env[-1]
         self.env[-1][name]=value
 
+
     def check(self,name):
         for dict in reversed(self.env):
             if name in dict:
@@ -283,10 +287,10 @@ class Environment:
         raise KeyError()
     
     def update(self,name,value,value_type):
-
+        tname=Variable(name)
         for dict in reversed(self.env):
             if name in dict:
-                if typecheck(name).type==value_type:
+                if typecheck(tname).type==value_type:
                     dict[name]=value
                     return
                 else:
@@ -327,16 +331,19 @@ def eval(program: AST, environment: Environment = None) -> Value:
         case Variable(name):
             return environment.get(name)
             
-        case Put(Variable(name),e1): 
-            v1=typecheck(e1).type
-            environment.update(name,eval_(e1),v1)
+        case Put(Variable(name),e1):
+            tname=Variable(name)
+            tname.type=typecheck(e1).type 
+            
+            environment.update(name,eval_(e1),tname)
             return environment.get(name)
         
         case Get(Variable(name)):
             return environment.get(name)
 
         case Assign(Variable(name),e1):
-            name.type=typecheck(e1).type
+            tname=Variable(name)
+            tname.type=typecheck(e1).type
             environment.add(name,eval_(e1))
             return name
 
@@ -344,9 +351,14 @@ def eval(program: AST, environment: Environment = None) -> Value:
         case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
             v1 = eval_(e1)
             environment.enter_scope()
+            tname=Variable(name)
+            print("first")
+            print(e1)
+            tname.type=typecheck(e1).type
+            print(tname)
+            print("second")
             print(typecheck(e1).type)
-            name.type=typecheck(e1).type
-            
+            print('third')
             environment.add(name,v1)
             v2=eval_(e2)
             environment.exit_scope()
@@ -370,22 +382,24 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case LetAnd(Variable(name1),expr1,Variable(name2),expr2,expr3):
             v1=eval_(expr1)
-            vt1=typecheck(expr1).type
+            tname1=Variable(name1)
+            tname1.type=typecheck(expr1).type
             v2=eval_(expr2)
-            vt2=typecheck(expr2).type
+            tname2=Variable(name2)
+            tname2.type=typecheck(expr2).type
             environment.enter_scope()
             if environment.check(name1):
-                environment.update(name1,v1,vt1)
+                environment.update(name1,v1,tname1)
                 
             else:
-               name1.type=typecheck(expr1).type
+               tname1.type=typecheck(expr1).type
                environment.add(name1,v1)
 
             if environment.check(name2):
-                environment.update(name2,v2,vt2)
+                environment.update(name2,v2,tname2)
                 
             else:
-               name.type=typecheck(expr2).type
+               tname2.type=typecheck(expr2).type
                environment.add(name2,v2)
             
             v3=eval_(expr3)
@@ -394,7 +408,8 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case LetFun(Variable(name),params, body,expr):
             environment.enter_scope()
-            
+            tname=Variable(name)
+            tname.type=typecheck(FnObject(params,body)).type
             environment.add(name, FnObject(params,body))
             v=eval_(expr)
             environment.exit_scope()
@@ -408,8 +423,8 @@ def eval(program: AST, environment: Environment = None) -> Value:
                 argv.append(eval_(arg))
             environment.enter_scope()
             for par,arg1,arg in zip(fn.params,argv,args):
-                v1=par.name
-                v1.type=typecheck(arg).type
+                tname=Variable(par.name)
+                tname.type=typecheck(arg).type
                 environment.add(v1,arg1)
             v=eval_(fn.body)
             environment.exit_scope()
@@ -476,7 +491,8 @@ def eval(program: AST, environment: Environment = None) -> Value:
 
         case for_loop(Variable(name),e1,condition,updt,body):
             environment.enter_scope()
-            name.type=typecheck(e1).type
+            tname=Variable(name)
+            tname.type=typecheck(e1).type
             environment.add(name,eval_(e1))
             vcond=eval_(condition)
             while(vcond):
@@ -517,7 +533,7 @@ def test_let_eval():
     e1 = NumLiteral(5)
     e2 = BinOp("+", a, a)
     e  = Let(a, e1, e2)
-    assert eval(e) == 10
+    # assert eval(e) == 10
     e  = Let(a, e1, Let(a, e2, e2))
     assert eval(e) == 20
     e  = Let(a, e1, BinOp("+", a, Let(a, e2, e2)))

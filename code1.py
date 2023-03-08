@@ -55,11 +55,6 @@ class Variable:
     name: str
 
 
-@dataclass
-class StringLiteral:
-    word : str 
-    type: SimType = StringType()
-
 
 @dataclass
 class Let:
@@ -216,7 +211,7 @@ class Environment:
 
     
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | LetAnd |Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp
 
 
 
@@ -280,7 +275,7 @@ def typecheck(program: AST, env = None) -> AST:
 def eval(program: AST, environment: Environment = None) -> Value:
     if environment is None:
         environment = Environment()
-
+        print("hello123 ")
     def eval_(program):
         return eval(program, environment) 
        
@@ -509,6 +504,7 @@ def test_if_else_eval():
     e6=BinOp("*",e3,e4)
     e7=BinOp(">",e5,e6)
     e10=if_else(e7,e5,e6)
+    print(e10)
     assert eval(e10) == 50
 
 def test_letmut_eg1():
@@ -623,19 +619,26 @@ def test_typecheck():
     print("t3: ",t3)
     assert t3.type == NumType()
 
-print("test_eval(): ",test_eval())
+def test_typecheck1():
+    t1=BinOp("-",NumLiteral(5),NumLiteral(3))
+    t2=BinOp("+",t1,NumLiteral(2))
+    t3=typecheck(t2)
+    print("t2: ",t2)
+    print("t3: ",t3)
+    assert t3.type == NumType()
+# print("test_eval(): ",test_eval())
 print("test_if_else_eval(): ", test_if_else_eval())
-print("test_let_eval(): ",test_let_eval())
-print("test_letmut_eg1(): ",test_letmut_eg1())
-print("test_letmut_eg2(): ",test_letmut_eg2())
-print("test_print(): ",test_print())
-print("test_letmut(): ",test_letmut())
-print("test_while_eval(): ",test_while_eval())
-print("test_for_eval(): ",test_for_eval())
-print("test_Letfun1(): ",test_Letfun1())
-print("test_Letfun2(): ",test_Letfun2())
-print("test_LetAnd(): ",test_LetAnd())
-print("test_UBoolOp1(): ",test_UBoolOp1())
-print("test_UBoolOp2(): ",test_UBoolOp2())
-print("test_typecheck(): ",test_typecheck())
+# print("test_let_eval(): ",test_let_eval())
+# print("test_letmut_eg1(): ",test_letmut_eg1())
+# print("test_letmut_eg2(): ",test_letmut_eg2())
+# print("test_print(): ",test_print())
+# print("test_letmut(): ",test_letmut())
+# print("test_while_eval(): ",test_while_eval())
+# print("test_for_eval(): ",test_for_eval())
+# print("test_Letfun1(): ",test_Letfun1())
+# print("test_Letfun2(): ",test_Letfun2())
+# print("test_LetAnd(): ",test_LetAnd())
+# print("test_UBoolOp1(): ",test_UBoolOp1())
+# print("test_UBoolOp2(): ",test_UBoolOp2())
+# print("test_typecheck(): ",test_typecheck())
 

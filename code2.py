@@ -1,6 +1,8 @@
 from fractions import Fraction
 from dataclasses import dataclass
 from typing import Optional, NewType
+from typing import List
+
 
 # A minimal example to illustrate typechecking.
 
@@ -58,7 +60,7 @@ class EndOfTokens(Exception):
     pass
 
 
-keywords = "if then else end while do done".split()
+keywords = "if then else end while do done let is in letMut letAnd and seq anth put get printing ".split()
 symbolic_operators = "+ - * / < > ≤ ≥ = ≠".split()
 word_operators = "and or not quot rem".split()
 whitespace = " \t\n"
@@ -169,15 +171,88 @@ class Parser:
         self.lexer.match(Keyword("else"))
         f = self.parse_expr()
         self.lexer.match(Keyword("end"))
-        return IfElse(c, t, f)
+        return if_else(c, t, f)
+    def parse_let(self):
+        self.lexer.match(Keyword("let"))
+        v=self.parse_expr()
+        self.lexer.match(Keyword("is"))
+        e=self.parse_expr()
+        self.lexer.match(Keyword("in"))
+        b=self.parse_expr()
+        self.lexer.match(Keyword("end"))
+        return Let(v,e,b)
+    
+    def parse_LetMut(self):
+        self.lexer.match(Keyword("letMut"))
+        v=self.parse_expr()
+        self.lexer.match(Keyword("is"))
+        e=self.parse_expr()
+        self.lexer.match(Keyword("in"))
+        b=self.parse_expr()
+        self.lexer.match(Keyword("end"))
+        return LetMut(v,e,b)
+    
+    def parse_LetAnd(self):
+        self.lexer.match(Keyword("letAnd"))
+        v1=self.parse_expr()
+        self.lexer.match(Keyword("is"))
+        e1=self.parse_expr()
+        self.lexer.match(Keyword("and"))
+        v2=self.parse_expr()
+        self.lexer.match(Keyword("is"))
+        e2=self.parse_expr()
+        self.lexer.match(Keyword("in"))
+        b=self.parse_expr()
+        self.lexer.match(Keyword("end"))
+        return LetAnd(v1,e1,v2,e2,b)
+    
+    def parse_Seq(self):
+        self.lexer.match(Keyword("seq"))
+        lst=[]
+        e1=self.parse_expr()
+        lst.append(e1)
+        self.lexer.match(Keyword("anth"))
+        e2=self.parse_expr()
+        lst.append(e2)
+        self.lexer.match(Keyword("end"))
+        # print(" helloo ")
+        # a=True
+        # while a:
+            
+        #     e1=self.parse_expr()
+        #     lst.append(e1)
+        #     print(" helloo 123")
+        #     self.lexer.match(Keyword(" "))
+        #     if self.lexer.match(Keyword("end")):
+        #         a=False
+        return Seq(lst)
 
+    def parse_put(self):
+        self.lexer.match(Keyword("put"))
+        v=self.parse_expr()
+        self.lexer.match(Keyword("is"))
+        e=self.parse_expr()
+        self.lexer.match(Keyword("end"))
+        return Put(v,e)
+    
+    def parse_get(self):
+        self.lexer.match(Keyword("get"))
+        v=self.parse_expr()
+        return Get(v)
+    
+    def parse_printing(self):
+        self.lexer.match(Keyword("printing"))
+        v=self.parse_expr()
+        self.lexer.match(Keyword("end"))
+        return Print(v)
+    
     def parse_while(self):
         self.lexer.match(Keyword("while"))
         c = self.parse_expr()
         self.lexer.match(Keyword("do"))
         b = self.parse_expr()
         self.lexer.match(Keyword("done"))
-        return While(c, b)
+        return while_loop(c, b)
 
     def parse_atom(self):
         # checks the type of the next token
@@ -238,6 +313,20 @@ class Parser:
                 return self.parse_if()
             case Keyword("while"):
                 return self.parse_while()
+            case Keyword("let"):
+                return self.parse_let()
+            case Keyword("letMut"):
+                return self.parse_LetMut()
+            case Keyword("put"):
+                return self.parse_put()
+            case Keyword("get"):
+                return self.parse_get()
+            case Keyword("letAnd"):
+                return self.parse_LetAnd()
+            case Keyword("seq"):
+                return self.parse_Seq()
+            case Keyword("printing"):
+                return self.parse_printing()
             case _:
                 return self.parse_simple()
 
@@ -255,51 +344,382 @@ class StringType:
 SimType = NumType | BoolType | StringType
 
 @dataclass
+#  The _init_ method takes any number of arguments and passes them to the Fraction constructor to create a new Fraction object, which is then stored in the value field.
 class NumLiteral:
     value: Fraction
     type: SimType = NumType()
+    def __init__(self, *args):
+        self.value = Fraction(*args)
 
-@dataclass
-class BoolLiteral:
-    value: bool
-    type: SimType = BoolType()
 
 @dataclass
 class StringLiteral:
-    value:bool
-    type:SimType =StringType()
+    word : str 
+    type: SimType = StringType()
 
 @dataclass
-class BinOp:
-    operator: str
+class Integer:
+    value:int
+    type:SimType=NumType()
+
+@dataclass
+# this is kind of binary operation
+class BinOp:                      
+    operator: str      # '+' is the operator in addition
+    # below are kind of two no. to be added
     left: 'AST'
     right: 'AST'
+
     type: Optional[SimType] = None
 
-@dataclass
-class IfElse:
-    condition: 'AST'
-    iftrue: 'AST'
-    iffalse: 'AST'
-    type: Optional[SimType] = None
-
-@dataclass
-class While:
-    condition: 'AST'
-    body: 'AST'
 
 @dataclass
 class Variable:
     name: str
 
 
+@dataclass
+class StringLiteral:
+    word : str 
+    type: SimType = StringType()
 
-AST = NumLiteral | BoolLiteral | StringLiteral | BinOp | IfElse | While | Variable
+
+@dataclass
+class Let:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+@dataclass
+class BoolLiteral:
+    value: bool
+    type: SimType = BoolType()
+
+
+@dataclass
+class if_else:
+    expr: 'AST'
+    et: 'AST'    #statement if expr is true
+    ef: 'AST'    #statement if expr is false
+    type: Optional[SimType] = None
+
+
+@dataclass
+class while_loop:
+    condition: 'AST'
+    body: 'AST'
+
+
+@dataclass
+class for_loop:
+    var: 'AST'
+    expr: 'AST'
+    condition: 'AST'
+    updt: 'AST'
+    body: 'AST'
+
+
+@dataclass
+class Two_Str_concatenation:
+    str1: 'AST'
+    str2: 'AST'
+
+@dataclass
+
+class Str_slicing:
+    str1: 'AST'
+    start: 'AST'
+    end: 'AST'
+
+
+@dataclass
+class LetMut:
+    var: 'AST'
+    e1: 'AST'
+    e2: 'AST'
+
+
+@dataclass
+class Seq:
+    body: List['AST']
+
+
+@dataclass
+class Put:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
+
+class Assign:
+    var: 'AST'
+    e1: 'AST'
+
+@dataclass
+
+class Get:
+    var: 'AST'
+
+@dataclass
+class Print:
+    e1: 'AST'
+
+@dataclass
+class LetFun:
+    name:'AST'
+    params:List['AST']
+    body:'AST'
+    expr:'AST'
+
+@dataclass
+class FunCall:
+    fn:'AST'
+    args: List['AST']
+
+@dataclass
+class FnObject:
+    params: List['AST']
+    body: 'AST'
+
+@dataclass
+class LetAnd:
+    var1:'AST'
+    expr1: 'AST'
+    var2:'AST'
+    expr2:'AST'
+    expr3:'AST'
+@dataclass
+class UBoolOp:
+    expr: 'AST' 
+
+AST = NumLiteral |BoolLiteral | StringLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get | Assign |Seq | Print | while_loop | FunCall | StringLiteral | UBoolOp | LetAnd
 # TypedAST = NewType('TypedAST', AST)
+class InvalidProgram(Exception):
+    pass
+
+# new code start
+Value = Fraction | bool | str
+
+
+class Environment:
+    env: List
+
+    def __init__(self):
+        self.env=[{}]
+
+    def enter_scope(self):
+        self.env.append({})
+
+    def exit_scope(self):
+        assert self.env
+        self.env.pop()
+
+    def add(self,name,value):
+        assert name not in self.env[-1]
+        self.env[-1][name]=value
+
+    def check(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return True
+            else:
+                return False
+            
+    def get(self,name):
+        for dict in reversed(self.env):
+            if name in dict:
+                return dict[name]
+        raise KeyError()
+    
+    def update(self,name,value):
+
+        for dict in reversed(self.env):
+            if name in dict:
+                dict[name]=value
+                return
+
+        raise KeyError()
 
 
 class TypeError(Exception):
     pass
+
+def eval(program: AST, environment: Environment = None) -> Value:
+    if environment is None:
+        environment = Environment()
+
+    def eval_(program):
+        return eval(program, environment) 
+       
+    match program:
+        case NumLiteral(value):
+            return value
+        case BoolLiteral(value):
+            return value
+
+        case StringLiteral(word):
+            return word
+
+        case Variable(name):
+            return environment.get(name)
+            
+        case Put(Variable(name),e1): 
+            environment.update(name,eval_(e1))
+            return environment.get(name)
+        
+        case Get(Variable(name)):
+            return environment.get(name)
+
+        case Assign(Variable(name),e1):
+            environment.add(name,eval_(e1))
+            return name
+
+
+        case Let(Variable(name), e1, e2) | LetMut(Variable(name),e1, e2):
+            v1 = eval_(e1)
+            environment.enter_scope()
+            environment.add(name,v1)
+            v2=eval_(e2)
+            environment.exit_scope()
+            return v2
+        
+        case Two_Str_concatenation(str1,str2):
+            result_str = eval_(str1) + eval_(str2)
+            return result_str
+
+        case Str_slicing(str1,start,end):
+            result_str = StringLiteral("")
+            i = Variable("i")
+            i = start
+            body1 = LetMut(i,Get(i),BinOp("+",i,NumLiteral(1)))
+            body2 = LetMut(result_str,Get(result_str),Two_Str_concatenation(result_str,str1[Get(i)]))
+            body = Seq([body1,body2])
+            condition = BinOp("<",i,end)
+            eval_(while_loop(condition,body))
+            return result_str
+
+
+        case LetAnd(Variable(name1),expr1,Variable(name2),expr2,expr3):
+            v1=eval_(expr1)
+            v2=eval_(expr2)
+            environment.enter_scope()
+            if environment.check(name1):
+                environment.update(name1,v1)
+                
+            else:
+               environment.add(name1,v1)
+
+            if environment.check(name2):
+                environment.update(name2,v2)
+                
+            else:
+               environment.add(name2,v2)
+            
+            v3=eval_(expr3)
+            environment.exit_scope()
+            return v3
+
+        case LetFun(Variable(name),params, body,expr):
+            environment.enter_scope()
+            environment.add(name, FnObject(params,body))
+            v=eval_(expr)
+            environment.exit_scope()
+            return v
+        
+        
+        case FunCall(Variable(name),args):
+            fn=environment.get(name)
+            argv=[]
+            for arg in args:
+                argv.append(eval_(arg))
+            environment.enter_scope()
+            for par,arg in zip(fn.params,argv):
+                environment.add(par.name,arg)
+            v=eval_(fn.body)
+            environment.exit_scope()
+            return v
+            
+        case UBoolOp(expr):
+            if typecheck(expr).type==NumType():
+                    v1=eval_(expr)
+                    if v1 !=0:
+                        print("yes")
+                        return True
+                    else:
+                        return False
+            elif typecheck(expr).type==StringType():
+                    v1=eval_(expr)
+                    if v1 == "":
+                        return False
+                    else:
+                        return True
+            else:
+                print("error")
+
+        case Two_Str_concatenation(str1,str2):
+            result_str = eval_(str1) + eval_(str2)
+            return result_str
+     
+
+        case Seq(body):
+            v1=None
+            for item in body:
+                v1=eval_(item)
+            return v1    
+
+        case BinOp("+", left, right):
+            return eval_(left) + eval_(right)
+        case BinOp("-", left, right):
+            return eval_(left) - eval_(right)
+        case BinOp("*", left, right):
+            return eval_(left) * eval_(right)
+        case BinOp("/", left, right):
+            return eval_(left) / eval_(right)
+        case BinOp(">",left,right):
+            return eval_(left) > eval_(right)
+        case BinOp("<", left,right):
+            return eval_(left) < eval_(right)
+        case BinOp("==", left,right):
+            return eval_(left) == eval_(right)
+        
+        case if_else(expr,et,ef):
+            v1 = eval_(expr)
+            if v1 == True:
+                return eval_(et)
+            else:
+                return eval_(ef)
+                
+        case while_loop(condition,e1):
+            environment.enter_scope()
+            vcond = eval_(condition)
+            while(vcond):
+                eval_(e1) 
+                vcond=eval_(condition)
+            environment.exit_scope()
+            return None
+
+        case for_loop(Variable(name),e1,condition,updt,body):
+            environment.enter_scope()
+            environment.add(name,eval_(e1))
+            vcond=eval_(condition)
+            while(vcond):
+                eval_(body)
+                eval_(updt)
+                vcond=eval_(condition)    
+            environment.exit_scope()
+            return None
+        
+        case Print(e1):
+            v1=eval_(e1)
+            print(v1)
+            return v1
+
+    raise InvalidProgram()
+
+#new code ends
+
+
+
 
 # Since we don't have variables, environment is not needed.
 def typecheck(program: AST, env = None) -> AST:
@@ -328,7 +748,7 @@ def typecheck(program: AST, env = None) -> AST:
             if tleft.type != tright.type:
                 raise TypeError()
             return BinOp("=", left, right, BoolType())
-        case IfElse(c, t, f): # We have to typecheck both branches.
+        case if_else(c, t, f): # We have to typecheck both branches.
             tc = typecheck(c)
             if tc.type != BoolType():
                 raise TypeError()
@@ -336,7 +756,7 @@ def typecheck(program: AST, env = None) -> AST:
             tf = typecheck(f)
             if tt.type != tf.type: # Both branches must have the same type.
                 raise TypeError()
-            return IfElse(tc, tt, tf, tt.type) # The common type becomes the type of the if-else.
+            return if_else(tc, tt, tf, tt.type) # The common type becomes the type of the if-else.
     raise TypeError()
 
 def test_typecheck():
@@ -359,9 +779,21 @@ def test_parse():
         return Parser.parse_expr (
             Parser.from_lexer(Lexer.from_stream(Stream.from_string(string)))
         )
+    x=input()
+    y=parse(x)
+    print("y ",eval(y))
     # You should parse, evaluate and see whether the expression produces the expected value in your tests.
-    print(parse("if a+b > 2*d then a*b - c + d else e*f/g end"))
+    # print(parse("if a+b > 2*d then a*b - c + d else e*f/g end"))
+    # print(parse("if 10*5 > 6*6 then 10*5 else 6*6 end"))
+    # print(" eval ")
+    # b=parse("if 10*5 > 6*6 then 10*5 else 6*6 end")
+    # print("b ",b)
+    # print(eval(b))
+    # c=parse("let a is 5 in let b is 7 in a+b end end ")
+    # print("c ",c)
+    # print(eval(c))
+    # code1.eval(parse("if a+b > 2*d then a*b - c + d else e*f/g end"))
 
 # test_parse() # Uncomment to see the created ASTs.
-print(test_parse())
-print(test_typecheck())
+print("parse  ",test_parse())
+# print(test_typecheck())
