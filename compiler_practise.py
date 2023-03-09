@@ -68,7 +68,7 @@ class Two_Str_concatenation:
 
 @dataclass
 class Str_slicing:
-    str1: 'AST'
+    word: 'AST'
     start: 'AST'
     end: 'AST'
 
@@ -82,6 +82,10 @@ class LetMut:
 @dataclass
 class Seq:
     body: List['AST']
+
+@dataclass
+class UnaryBoolifing:
+    var: 'AST'
 
 @dataclass
 class LetMut:
@@ -132,7 +136,7 @@ class Environment:
                 return
         raise KeyError()
 
-AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print | while_loop
+AST = NumLiteral | BinOp | Variable | Let | if_else | LetMut | Put | Get |Seq | Print | while_loop | StringLiteral
 
 
 # The AST type is defined as a union of several classes, including NumLiteral, BinOp, Variable, Let, and If_else.
@@ -158,6 +162,19 @@ def eval(program: AST, environment: Environment = None) -> Value:
             return value
         case BoolLiteral(value):
             return value
+        
+        case UnaryBoolifing(var):
+            if(type(var)==type(NumLiteral(var))):
+                if(BinOp(">",var,NumLiteral(0))):
+                    return True
+                else:
+                    return False
+            if(type(var)==type(StringLiteral(var))):
+                if(var==StringLiteral("")):
+                    return False
+                else:
+                    return True
+                
         case StringLiteral(word):
             return word
         case Variable(name):
@@ -194,6 +211,8 @@ def eval(program: AST, environment: Environment = None) -> Value:
             eval_(while_loop(condition,body))
             return result_str
 
+        # case Str_slicing(word,start,end):
+        #     return word[start:end]
 
         case Seq(body):
             v1=None
@@ -251,16 +270,15 @@ def test_eval():
     assert eval(e7) == Fraction(32, 5)
 
 def test_string_slicing():
-    str1 = StringLiteral("abcdefg")
-    start = NumLiteral(0)
-    end = NumLiteral(4)
-    expr = Str_slicing(str1,start,end)
-    assert eval(expr) == 'abcd'
+    program = Str_slicing(StringLiteral("Hello, world!"), NumLiteral(0), NumLiteral(5))
+    # program = Str_slicing("Hello, world!", NumLiteral(0), NumLiteral(5))
+    result = eval(program)
+    assert eval(result) == 'Hello'
 
 def test_let_eval():
     a  = Variable("a")
     e1 = NumLiteral(5)
-    e2 = BinOp("+", a, a)
+    e2 = BinOp("+", a, a) 
     e  = Let(a, e1, e2)
     assert eval(e) == 10
     e  = Let(a, e1, Let(a, e2, e2))
